@@ -1,98 +1,97 @@
 # Echoes of Ash
 
-Vertical slice di un action RPG procedurale in 2D, scritto in **GDScript** per **Godot 4.7.2**.
-Nessun asset importato: terreno, props, personaggi, effetti, UI e atmosfera sono disegnati dal
-codice. Nessuna rete, nessun servizio esterno.
+Vertical slice of a 2D procedural action RPG, written in **GDScript** for **Godot 4.7.2**.
+No imported assets: terrain, props, characters, effects, UI and atmosphere are drawn by the
+code. No networking, no external services.
 
-Questo repository è il **pacchetto di archivio** del progetto: contiene tutto ciò che serve per
-compilarlo, eseguirlo, verificarlo e riprenderlo in mano. I report di sessione, i log e gli
-artefatti temporanei sono stati rimossi; i dati unici sono stati trasferiti in
-[`CHECKPOINT.md`](CHECKPOINT.md). La specifica tecnica originale (in inglese) è in
-[`docs/ARCHITECTURE-EN.md`](docs/ARCHITECTURE-EN.md).
-
----
-
-## 1. Visione e obiettivi
-
-Un RPG d'azione "piccolo ma completo": un'isola generata da un seed, esplorazione libera con
-movimento a 8 direzioni, combattimento melee a tempo reale, due tipi di nemici, loot, crescita del
-personaggio, un NPC con dialogo e un braciere come punto di cura/respawn. Il vincolo di progetto è
-**zero asset esterni**: tutto ciò che si vede è `_draw()` procedurale o `Image`/`ImageTexture`
-generata a runtime.
-
-L'obiettivo dichiarato era dimostrare il *vertical slice* (un giro di gioco completo e coerente),
-non la quantità di contenuti. Il progetto è **congelato** in questo stato: vedi §9 e §12.
+This repository is the project's **archive package**: it contains everything needed to build,
+run, verify and pick it up again. Session reports, logs and temporary artifacts have been
+removed; the unique data has been moved into [`CHECKPOINT.md`](CHECKPOINT.md). The original
+technical specification (in English) is in [`docs/ARCHITECTURE-EN.md`](docs/ARCHITECTURE-EN.md).
 
 ---
 
-## 2. Gameplay e funzionalità presenti
+## 1. Vision and goals
 
-Tutto quanto segue è **implementato e verificato** da un test con exit code o da uno stato
-osservato (dettaglio nella tabella di §9 e in `CHECKPOINT.md` §4).
+A "small but complete" action RPG: an island generated from a seed, free exploration with
+8-direction movement, real-time melee combat, two enemy types, loot, character growth, an NPC
+with dialogue and a brazier as a heal/respawn point. The project constraint is
+**zero external assets**: everything you see is procedural `_draw()` or `Image`/`ImageTexture`
+generated at runtime.
 
-- **Mondo procedurale deterministico**: isola con rumore di elevazione + umidità e soglie a
-  percentile (≈22 % acqua, ≈78 % terra), 6 biomi di suolo, 4 punti d'interesse collegati da
-  sentieri BFS, 2 complessi di rovine con mura solide e varchi, ~800 props con spaziatura minima.
-  Spawn sicuro garantito (area 11×11 libera).
-- **Determinismo su seed**: stream RNG separati per terreno, props, entità e loot
-  (`WorldGenerator.make_stream(seed, id)`); stesso seed → stesso `layout_hash`.
-- **Giocatore**: `CharacterBody2D`, movimento a 8 direzioni con accelerazione/attrito, collisioni
-  con i props solidi, acqua non calpestabile (sliding lungo la riva), camera con smoothing e
-  limiti di mondo.
-- **Combattimento**: fendente ad arco di 105°, portata 26 px, knockback, particelle, screen shake.
-- **Due nemici distinti** (crawler e warden) con FSM `idle / patrol / chase / attack / hurt /
-  death`, rilevamento a raggio con linea di vista, movimento obstacle-aware (7 raggi + sidestep),
-  stallo e ripresa, respawn su ancora a 28 s.
-- **Progressione**: XP, livelli, HP e danno crescenti, morte e rinascita, progressione mantenuta
-  quando si rigenera il mondo (il nodo player viene riusato).
-- **Oggetti**: 5 oggetti, inventario a 12 slot con 3 slot di equipaggiamento, drop controllati,
-  raccolta con `E`, uso con `1`–`4`.
-- **Interazione**: contratto `Interactable`, NPC "Wanderer" con dialogo a 4 battute e ricompensa
-  una tantum, braciere che cura 35 HP con cooldown 12 s e fa da respawn.
-- **UI completa in codice** (`CanvasLayer`): barre HP/XP, livello, notifiche, prompt contestuale,
-  inventario, pausa (Resume / New world), schermata di morte, guida ai comandi.
-- **Atmosfera**: acqua animata, nebbia radiale, glow additivo (torcia + bracieri), ciclo
-  giorno/notte con `CanvasModulate`, vignetta.
-
-**Assente per scelta o per stato di avanzamento**: audio (0 %), salvataggio su disco,
-streaming a chunk, nemici a distanza, opzioni/accessibilità, export e CI. Vedi §10.
+The stated goal was to demonstrate the *vertical slice* (one complete and coherent playthrough),
+not the amount of content. The project is **frozen** in this state: see §9 and §12.
 
 ---
 
-## 3. Architettura e tecnologie
+## 2. Gameplay and features present
 
-Separazione netta in tre strati, con la logica eseguibile senza rendering:
+Everything below is **implemented and verified** by a test with an exit code or by an observed
+state (details in the table of §9 and in `CHECKPOINT.md` §4).
 
-| Strato | File | Regola |
+- **Deterministic procedural world**: an island from elevation + moisture noise with
+  percentile thresholds (≈22 % water, ≈78 % land), 6 ground biomes, 4 points of interest linked
+  by BFS paths, 2 ruin complexes with solid walls and openings, ~800 props with minimum spacing.
+  Guaranteed safe spawn (clear 11×11 area).
+- **Determinism on seed**: separate RNG streams for terrain, props, entities and loot
+  (`WorldGenerator.make_stream(seed, id)`); same seed → same `layout_hash`.
+- **Player**: `CharacterBody2D`, 8-direction movement with acceleration/friction, collisions
+  with solid props, water that cannot be walked on (sliding along the shore), camera with
+  smoothing and world limits.
+- **Combat**: 105° arc slash, 26 px reach, knockback, particles, screen shake.
+- **Two distinct enemies** (crawler and warden) with an `idle / patrol / chase / attack / hurt /
+  death` FSM, radius detection with line of sight, obstacle-aware movement (7 rays + sidestep),
+  stall and recovery, respawn at an anchor after 28 s.
+- **Progression**: XP, levels, growing HP and damage, death and rebirth, progression preserved
+  when the world is regenerated (the player node is reused).
+- **Items**: 5 items, 12-slot inventory with 3 equipment slots, controlled drops,
+  pickup with `E`, use with `1`–`4`.
+- **Interaction**: `Interactable` contract, "Wanderer" NPC with a 4-line dialogue and a one-time
+  reward, brazier that heals 35 HP with a 12 s cooldown and acts as a respawn point.
+- **Complete UI in code** (`CanvasLayer`): HP/XP bars, level, notifications, contextual prompt,
+  inventory, pause (Resume / New world), death screen, control guide.
+- **Atmosphere**: animated water, radial fog, additive glow (torch + braziers), day/night cycle
+  with `CanvasModulate`, vignette.
+
+**Missing by choice or by state of progress**: audio (0 %), on-disk save, chunk streaming,
+ranged enemies, options/accessibility, export and CI. See §10.
+
+---
+
+## 3. Architecture and technologies
+
+A clean split into three layers, with the logic runnable without rendering:
+
+| Layer | Files | Rule |
 |---|---|---|
-| **Dati + logica** (nessun nodo) | `world/world_data.gd`, `world/world_generator.gd`, `items/item_db.gd`, `items/inventory.gd`, `combat/combat.gd`, `interact/interactable.gd` | funzioni pure o quasi pure, testabili headless |
-| **Presentazione** | `*_visual.gd`, `effects.gd`, `ground_texture.gd`, `water_overlay.gd`, `fog_layer.gd`, `light_layer.gd`, `ui/hud.gd` | legge lo stato, non lo decide |
-| **Composizione** | `systems/game.gd` | composition root: mondi, loot, respawn, input, pausa |
+| **Data + logic** (no nodes) | `world/world_data.gd`, `world/world_generator.gd`, `items/item_db.gd`, `items/inventory.gd`, `combat/combat.gd`, `interact/interactable.gd` | pure or nearly pure functions, headless-testable |
+| **Presentation** | `*_visual.gd`, `effects.gd`, `ground_texture.gd`, `water_overlay.gd`, `fog_layer.gd`, `light_layer.gd`, `ui/hud.gd` | reads state, does not decide it |
+| **Composition** | `systems/game.gd` | composition root: worlds, loot, respawn, input, pause |
 
-- Comunicazione **per segnali verso l'alto** (`Player.health_changed/damaged/died/…`,
+- Communication **by signals upwards** (`Player.health_changed/damaged/died/…`,
   `Enemy.died/struck/health_changed`, `Inventory.changed`, `HUD.resume_requested/new_world_requested`).
-  Nessun `get_node("../../..")`, nessun autoload.
-- Tutta la casualità passa da un `RandomNumberGenerator` con seed esplicito; niente `randi()` /
-  `randf()` globali.
-- Scena unica: `scenes/main.tscn` (un `Node2D` con `scripts/systems/game.gd`). Tutto il resto è
-  costruito a runtime.
-- Il melee è un **arco interrogato**, non un'`Area2D`: scelta deliberata, perché `Area2D` rileva
-  l'overlap solo dal terzo frame fisico dopo un teletrasporto (trappola misurata, `CHECKPOINT.md` §8).
+  No `get_node("../../..")`, no autoload.
+- All randomness goes through a `RandomNumberGenerator` with an explicit seed; no global
+  `randi()` / `randf()`.
+- Single scene: `scenes/main.tscn` (a `Node2D` with `scripts/systems/game.gd`). Everything else is
+  built at runtime.
+- Melee is a **queried arc**, not an `Area2D`: a deliberate choice, because `Area2D` detects
+  overlap only from the third physics frame after a teleport (measured trap, `CHECKPOINT.md` §8).
 
 ---
 
-## 4. Versioni e dipendenze
+## 4. Versions and dependencies
 
 | | |
 |---|---|
-| Motore | **Godot 4.7.2.stable.official** (`ed1daf0bf`) — nessun addon, nessun plugin |
-| `config/features` dichiarata | `PackedStringArray("4.7")` |
-| Linguaggio | GDScript tipizzato, 22 script di gioco (3.504 righe) + 6 script di test (1.276 righe) |
-| Asset esterni | **nessuno** (né immagini, né font, né audio) |
-| Rete | nessuna chiamata, nessuna telemetria |
-| Impronta del codice | `sha256 1369dae8d93ee51a330aeebf55ac817ee576d0eaf8ccec32006283d98f0545fe` (calcolata sui soli `*.gd`, `*.tscn`, `project.godot`, escluso `.godot/`) |
+| Engine | **Godot 4.7.2.stable.official** (`ed1daf0bf`) — no addons, no plugins |
+| Declared `config/features` | `PackedStringArray("4.7")` |
+| Language | Typed GDScript, 22 game scripts (3,504 lines) + 6 test scripts (1,276 lines) |
+| External assets | **none** (no images, no fonts, no audio) |
+| Networking | no calls, no telemetry |
+| Code fingerprint | `sha256 1369dae8d93ee51a330aeebf55ac817ee576d0eaf8ccec32006283d98f0545fe` (computed over `*.gd`, `*.tscn`, `project.godot` only, excluding `.godot/`) |
 
-Ricetta dell'impronta (dalla radice del pacchetto):
+Fingerprint recipe (from the package root):
 
 ```bash
 find . -path ./.godot -prune -o \( -name '*.gd' -o -name '*.tscn' -o -name 'project.godot' \) -print \
@@ -101,211 +100,211 @@ find . -path ./.godot -prune -o \( -name '*.gd' -o -name '*.tscn' -o -name 'proj
 
 ---
 
-## 5. Struttura delle directory
+## 5. Directory structure
 
 ```
 ECHO-OF-ASH/
-├── project.godot            configurazione: scena principale, InputMap, 480×270 ×3
-├── scenes/main.tscn         unica scena: radice Node2D + game.gd
+├── project.godot            configuration: main scene, InputMap, 480×270 ×3
+├── scenes/main.tscn         single scene: Node2D root + game.gd
 ├── scripts/
 │   ├── systems/             game.gd (composition root), day_night.gd
 │   ├── world/               world_data, world_generator, ground_texture, prop/water/fog/light
-│   ├── player/              player.gd (logica), player_visual.gd (disegno)
+│   ├── player/              player.gd (logic), player_visual.gd (drawing)
 │   ├── enemies/             enemy.gd (FSM), enemy_visual.gd
-│   ├── combat/              combat.gd (arco melee puro), effects.gd
+│   ├── combat/              combat.gd (pure melee arc), effects.gd
 │   ├── items/               item_db, inventory, pickup
-│   ├── interact/            interactable (contratto), npc, brazier
-│   └── ui/                  hud.gd (tutta la UI)
+│   ├── interact/            interactable (contract), npc, brazier
+│   └── ui/                  hud.gd (the whole UI)
 ├── tests/                   test_world, test_gameplay, test_visual, capture, inspect_shots, perf
-├── out/                     output delle sonde visive (screenshot storici + `.gdignore`)
+├── out/                     output of the visual probes (historical screenshots + `.gdignore`)
 ├── docs/
-│   └── ARCHITECTURE-EN.md   specifica tecnica originale (inglese, testo integrale)
-├── README.md                questo file
-├── CHECKPOINT.md            continuità operativa: stato, trappole, debiti, ripresa
-└── INDEX.md                 indice: dove sta cosa
+│   └── ARCHITECTURE-EN.md   original technical specification (English, full text)
+├── README.md                this file
+├── CHECKPOINT.md            operational continuity: state, traps, debts, resuming
+└── INDEX.md                 index: where things are
 ```
 
-`out/` contiene `.gdignore`: Godot non importa i PNG prodotti dalle sonde. Gli screenshot
-`shot_01…07` sono l'evidenza visiva dello slice; i log storici sono stati rimossi (erano ridondanti
-rispetto a `CHECKPOINT.md` §10).
+`out/` contains `.gdignore`: Godot does not import the PNGs produced by the probes. The
+`shot_01…07` screenshots are the visual evidence of the slice; the historical logs have been
+removed (they were redundant with respect to `CHECKPOINT.md` §10).
 
 ---
 
-## 6. Installazione e avvio
+## 6. Installation and launch
 
-Prerequisito: Godot **4.7.2** (stessa minor). Nessun altro requisito.
+Prerequisite: Godot **4.7.2** (same minor). No other requirement.
 
 ```bash
-# 1. path dell'eseguibile (adatta al tuo sistema)
-export GODOT=/percorso/Godot_v4.7.2-stable_win64_console.exe   # in Windows: la variante _console
-export GODOT_GUI=/percorso/Godot_v4.7.2-stable_win64.exe       # finestra reale (audio/video)
+# 1. path to the executable (adapt to your system)
+export GODOT=/path/to/Godot_v4.7.2-stable_win64_console.exe   # on Windows: the _console variant
+export GODOT_GUI=/path/to/Godot_v4.7.2-stable_win64.exe       # real window (audio/video)
 
-# 2. primo import (genera .godot/, necessario prima di --check-only e delle suite)
+# 2. first import (generates .godot/, required before --check-only and the suites)
 "$GODOT" --headless --path . --import
 
-# 3. gioca (finestra 1440×810, rendering interno 480×270 scalato ×3)
+# 3. play (1440×810 window, internal rendering 480×270 scaled ×3)
 "$GODOT_GUI" --path .
 
-# 4. mondo con un seed specifico
+# 4. world with a specific seed
 "$GODOT_GUI" --path . -- --seed 424242
 ```
 
-Il progetto si apre anche dall'editor Godot (`Import` → `project.godot`).
-Il primo avvio genera il mondo (≈250 ms) e la texture del suolo (≈250 ms).
+The project also opens from the Godot editor (`Import` → `project.godot`).
+The first launch generates the world (≈250 ms) and the ground texture (≈250 ms).
 
-**Nota sui path**: su Windows, Godot vuole path nativi (`C:/...`), non `/c/...`. Se usi una shell
-MSYS/git-bash, converti con `cygpath -m "$PWD"`.
+**Note on paths**: on Windows, Godot wants native paths (`C:/...`), not `/c/...`. If you use an
+MSYS/git-bash shell, convert with `cygpath -m "$PWD"`.
 
-### Comandi in gioco
+### In-game controls
 
-| Input | Azione |
+| Input | Action |
 |---|---|
-| `W A S D` | movimento a 8 direzioni |
-| mouse | mira del fendente |
-| tasto sinistro | attacco (arco 105°, portata 26 px) |
-| `E` | interagisci / raccogli / avanza nel dialogo / rialzati da morto |
-| `I` | inventario |
-| `1` `2` `3` `4` | usa o equipaggia l'oggetto della riga |
-| `ESC` | menu di pausa (Resume / New world) |
-| `R` | rigenera il mondo con il seed successivo |
+| `W A S D` | 8-direction movement |
+| mouse | slash aiming |
+| left button | attack (105° arc, 26 px reach) |
+| `E` | interact / pick up / advance the dialogue / get up when dead |
+| `I` | inventory |
+| `1` `2` `3` `4` | use or equip the item in that row |
+| `ESC` | pause menu (Resume / New world) |
+| `R` | regenerate the world with the next seed |
 
-Il seed corrente è mostrato nell'HUD (`seed <n> · <phase>`). Seed di default: `20261019`.
+The current seed is shown in the HUD (`seed <n> · <phase>`). Default seed: `20261019`.
 
 ---
 
-## 7. Test ed esecuzione delle verifiche
+## 7. Tests and running the checks
 
 ```bash
-# verifica completa headless in un comando (controlla ogni script, importa, avvia, esegue 2 suite)
+# full headless verification in one command (checks every script, imports, launches, runs 2 suites)
 bash verify.sh
 
-# solo una suite
-"$GODOT" --headless --path . --script res://tests/test_world.gd     # 29 controlli
-"$GODOT" --headless --path . --script res://tests/test_gameplay.gd   # 77 controlli
+# a single suite
+"$GODOT" --headless --path . --script res://tests/test_world.gd     # 29 checks
+"$GODOT" --headless --path . --script res://tests/test_gameplay.gd   # 77 checks
 
-# rendering reale: richiede una GPU e una finestra (non headless)
-"$GODOT_GUI" --path . --script res://tests/test_visual.gd            # 8 controlli
-"$GODOT_GUI" --path . --script res://tests/capture.gd                # 7 PNG in out/
+# real rendering: requires a GPU and a window (not headless)
+"$GODOT_GUI" --path . --script res://tests/test_visual.gd            # 8 checks
+"$GODOT_GUI" --path . --script res://tests/capture.gd                # 7 PNGs in out/
 
-# misure, senza asserzioni (stampa numeri)
+# measurements, without assertions (prints numbers)
 "$GODOT" --headless --path . --script res://tests/perf.gd
 ```
 
-Ogni suite è uno script `extends SceneTree` che esce con **exit code 0 = tutto verde, 1 = almeno un
-controllo fallito** e stampa un riepilogo finale (`checks: N   failures: 0`). Un `print` senza
-asserzione non è una verifica.
+Each suite is an `extends SceneTree` script that exits with **exit code 0 = all green, 1 = at least
+one failed check** and prints a final summary (`checks: N   failures: 0`). A `print` without an
+assertion is not a verification.
 
-`verify.sh` usa le variabili `GODOT` / `GODOT_GUI`; se non sono impostate prova i percorsi comuni e
-si ferma con un messaggio chiaro.
+`verify.sh` uses the `GODOT` / `GODOT_GUI` variables; if they are not set it tries the common paths
+and stops with a clear message.
 
 ---
 
-## 8. Stato reale dello sviluppo
+## 8. Actual state of development
 
-Legenda dei livelli usata in tutto il pacchetto:
+Legend of the levels used throughout the package:
 
-- **VERIFICATO** — eseguito e confrontato con l'atteso (exit code o stato osservato prima/dopo).
-- **ESEGUITO** — lanciato, output visto, nessuna asserzione sul comportamento.
-- **PARZIALE** — implementato, ma coperto solo in parte o solo in condizioni favorevoli.
-- **PIANIFICATO** — non implementato.
-- **NON FUNZIONANTE / BLOCCANTE** — noto rotto.
+- **VERIFIED** — run and compared against expectations (exit code or state observed before/after).
+- **EXECUTED** — launched, output seen, no assertion on behaviour.
+- **PARTIAL** — implemented, but covered only in part or only under favourable conditions.
+- **PLANNED** — not implemented.
+- **NOT WORKING / BLOCKING** — known broken.
 
-| Area | Stato | Prova |
+| Area | State | Proof |
 |---|---|---|
-| Generazione mondo, biomi, props, rovine, spawn sicuro | **VERIFICATO** | `test_world` — 29 controlli |
-| Determinismo su seed e stream RNG separati | **VERIFICATO** | `test_world` + `test_gameplay` (hash del layout) |
-| Movimento, collisioni, acqua non calpestabile | **VERIFICATO** | `test_gameplay` (dx = 29 px in 24 frame, blocco sul prop) |
-| Combattimento melee, danno, knockback, morte/respawn | **VERIFICATO** | `test_gameplay` (144 → 137, knockback 96,7) |
-| Due nemici, FSM, inseguimento, stallo | **VERIFICATO** | `test_gameplay` (69 → 9 px) |
-| IA attorno a muri lunghi / vicino all'acqua | **PARZIALE** | non testata (buco dichiarato) |
-| Loot, XP, livelli, inventario, equipaggiamento | **VERIFICATO** | `test_gameplay` (livello +1, max HP +12) |
-| NPC, dialogo, braciere, ricompense | **VERIFICATO** | `test_gameplay` (dialogo 4 battute, cura 116 → 144) |
-| HUD, pausa, morte, rigenerazione senza perdere progressione | **VERIFICATO** | `test_gameplay` |
-| Rendering, atmosfera, due silhouette, notte | **VERIFICATO** con GPU | `test_visual` — 8 controlli falsificabili |
-| Mira col mouse end-to-end, feel, FPS reali | **ESEGUITO / non asserito** | buco dichiarato (`CHECKPOINT.md` §7) |
-| Audio | **PIANIFICATO** (0 %) | — |
-| Salvataggio su disco | **PIANIFICATO** | — |
-| Streaming a chunk, nemico a distanza, opzioni, export | **PIANIFICATO** | — |
+| World generation, biomes, props, ruins, safe spawn | **VERIFIED** | `test_world` — 29 checks |
+| Determinism on seed and separate RNG streams | **VERIFIED** | `test_world` + `test_gameplay` (layout hash) |
+| Movement, collisions, water that cannot be walked on | **VERIFIED** | `test_gameplay` (dx = 29 px in 24 frames, blocked by the prop) |
+| Melee combat, damage, knockback, death/respawn | **VERIFIED** | `test_gameplay` (144 → 137, knockback 96.7) |
+| Two enemies, FSM, chasing, stall | **VERIFIED** | `test_gameplay` (69 → 9 px) |
+| AI around long walls / near water | **PARTIAL** | not tested (declared gap) |
+| Loot, XP, levels, inventory, equipment | **VERIFIED** | `test_gameplay` (level +1, max HP +12) |
+| NPC, dialogue, brazier, rewards | **VERIFIED** | `test_gameplay` (4-line dialogue, heal 116 → 144) |
+| HUD, pause, death, regeneration without losing progression | **VERIFIED** | `test_gameplay` |
+| Rendering, atmosphere, two silhouettes, night | **VERIFIED** with GPU | `test_visual` — 8 falsifiable checks |
+| Mouse aiming end-to-end, feel, real FPS | **EXECUTED / not asserted** | declared gap (`CHECKPOINT.md` §7) |
+| Audio | **PLANNED** (0 %) | — |
+| On-disk save | **PLANNED** | — |
+| Chunk streaming, ranged enemy, options, export | **PLANNED** | — |
 
-Nessuna voce del pacchetto è nello stato **NON FUNZIONANTE**: il gioco si avvia, le suite passano,
-le lacune sono per assenza di funzionalità, non per rotture.
-
----
-
-## 9. Problemi noti e funzionalità mancanti
-
-**Mancanti (non implementate, con criterio di accettazione in `CHECKPOINT.md` §6):**
-
-1. **Audio: assente al 100 %** (P1). Il vincolo è "nessun asset audio importato", non "nessun
-   audio": andrebbe generato con `AudioStreamGenerator`/`AudioStreamWAV`.
-2. **Salvataggio su disco: assente** (P1). La progressione sopravvive solo nella sessione.
-3. **Streaming a chunk: non implementato** (P2), benché il generatore sia già organizzato per celle
-   e con stream RNG separati.
-4. **Nemico a distanza: assente** (P2).
-5. **Feedback di combattimento** (numeri di danno, hit-stop): assente (P3).
-6. **UX inventario**: 12 slot reali ma la UI ne mostra 8, senza scroll/confronto (P3).
-7. **Opzioni e accessibilità** (rimappatura, scala testo, palette per daltonismo): assenti (P4).
-8. **Export e CI**: nessun preset, nessuna pipeline (P5).
-
-**Limiti noti di ciò che c'è:**
-
-- IA **locale**, non pathfinding globale: bersagli dietro un muro lungo possono richiedere tempo.
-- Nessuna collisione fisica player↔nemico (distanza di rispetto): non si possono "spingere" i nemici.
-- Rigenerazione del mondo = hitch di ~170–270 ms senza schermata di caricamento.
-- Notte fino a 0,54 di luminanza con torcia additiva: non è un sistema di luce con ombre.
-- Bilanciamento derivato da ragionamento, **non da playtest**.
-- Testo di gioco in inglese hardcoded: nessuna tabella di localizzazione.
-- `game.gd` (477 righe) è il composition root e cresce: loot/respawn/interazione sono candidati
-  all'estrazione.
-
-**Buchi di verifica (non affermare il contrario):** mira col mouse end-to-end, feel umano,
-FPS con rendering reale (profilato solo headless), IA attorno a muri lunghi o vicino all'acqua,
-overflow dell'inventario, distribuzione statistica dei drop, `--seed` end-to-end, sessioni lunghe
-(memoria/leak), accessibilità. Elenco completo: `CHECKPOINT.md` §7.
+No entry in the package is in the **NOT WORKING** state: the game launches, the suites pass,
+and the gaps are due to missing features, not to breakage.
 
 ---
 
-## 10. Debiti tecnici e limiti del pacchetto
+## 9. Known issues and missing features
 
-- Il progetto **non è mai stato in un repository Git** prima dell'archiviazione: la storia parte
-  dal commit iniziale di questo pacchetto. Il checkpoint precedente era un archivio tar in
-  `G-DEV/checkpoints/` (ora nel backup di sessione, vedi `CHECKPOINT.md` §11).
-- Nessuna licenza è stata definita dall'autore: **prima di pubblicare il repository va scelta una
-  licenza** (il motore Godot è MIT, ma il codice del gioco non ha licenza dichiarata).
-- Le sonde visive scrivono in `out/`, che è escluso dall'import Godot con `.gdignore`. Gli
-  screenshot prodotti non sono deterministici byte-per-byte (animazioni dipendenti dal tempo).
-- Il progetto dichiara `config/features = "4.7"`: con una minor diversa l'API va verificata prima
-  di usarla.
+**Missing (not implemented, with acceptance criteria in `CHECKPOINT.md` §6):**
 
----
+1. **Audio: 100 % absent** (P1). The constraint is "no imported audio assets", not "no
+   audio": it should be generated with `AudioStreamGenerator`/`AudioStreamWAV`.
+2. **On-disk save: absent** (P1). Progression survives only within the session.
+3. **Chunk streaming: not implemented** (P2), although the generator is already organised by cells
+   and with separate RNG streams.
+4. **Ranged enemy: absent** (P2).
+5. **Combat feedback** (damage numbers, hit-stop): absent (P3).
+6. **Inventory UX**: 12 real slots but the UI shows 8 of them, with no scroll/compare (P3).
+7. **Options and accessibility** (remapping, text scale, colour-blind palettes): absent (P4).
+8. **Export and CI**: no preset, no pipeline (P5).
 
-## 11. Riprendere lo sviluppo
+**Known limits of what exists:**
 
-1. Leggi `CHECKPOINT.md` §1–§3 (stato in una riga, ripresa in 60 secondi, mappa del codice).
-2. Esegui `bash verify.sh`: se è rosso, il pacchetto non corrisponde al disco → fermati e diagnosti,
-   non "aggiustare" i test.
-3. Ricalcola l'impronta di §4: se differisce da quella registrata, qualcosa è cambiato dopo
-   l'archiviazione.
-4. Scegli **una** voce P1 di `CHECKPOINT.md` §6, scrivi prima il test che deve fallire, poi
-   l'implementazione, poi aggiorna README e CHECKPOINT.
-5. Vincoli da rispettare: GDScript tipizzato, logica senza nodi, segnali verso l'alto, determinismo
-   su seed, nessun asset esterno, un solo passo logico per diff.
+- **Local** AI, not global pathfinding: targets behind a long wall may take time.
+- No physical player↔enemy collision (personal space): enemies cannot be "pushed".
+- World regeneration = ~170–270 ms hitch with no loading screen.
+- Night down to 0.54 luminance with an additive torch: it is not a lighting system with shadows.
+- Balancing derived from reasoning, **not from playtesting**.
+- In-game text hardcoded in English: no localisation table.
+- `game.gd` (477 lines) is the composition root and keeps growing: loot/respawn/interaction are
+  candidates for extraction.
 
----
-
-## 12. Licenza e attribuzioni
-
-- **Codice del gioco**: nessuna licenza dichiarata (tutti i diritti riservati all'autore). Da
-  decidere prima della pubblicazione.
-- **Motore**: Godot Engine 4.7.2, licenza MIT (© Godot Engine contributors).
-- **Asset di terze parti**: nessuno. Ogni pixel è generato dal codice del progetto.
+**Verification gaps (do not claim otherwise):** mouse aiming end-to-end, human feel,
+FPS with real rendering (profiled headless only), AI around long walls or near water,
+inventory overflow, statistical drop distribution, `--seed` end-to-end, long sessions
+(memory/leaks), accessibility. Full list: `CHECKPOINT.md` §7.
 
 ---
 
-## 13. Come è stato prodotto questo pacchetto
+## 10. Technical debt and limits of the package
 
-Archiviazione del 20 ottobre 2026: il progetto è stato copiato dalla directory di sviluppo,
-private della cache `.godot/`, dei log di sessione e della directory `tools/` (vuota), quindi
-sottoposto a verifica indipendente in questa stessa sede (import, avvio headless, suite headless).
-I risultati di quella verifica sono in `CHECKPOINT.md` §10. Il backup integrale dello stato
-pre-archiviazione è indicato in `CHECKPOINT.md` §11.
+- The project **was never in a Git repository** before archiving: history starts from the initial
+  commit of this package. The previous checkpoint was a tar archive in
+  `G-DEV/checkpoints/` (now in the session backup, see `CHECKPOINT.md` §11).
+- No licence was defined by the author: **a licence must be chosen before publishing the
+  repository** (the Godot engine is MIT, but the game code has no declared licence).
+- The visual probes write into `out/`, which is excluded from the Godot import by `.gdignore`. The
+  screenshots produced are not deterministic byte-for-byte (time-dependent animations).
+- The project declares `config/features = "4.7"`: with a different minor the API must be verified
+  before use.
+
+---
+
+## 11. Resuming development
+
+1. Read `CHECKPOINT.md` §1–§3 (state in one line, resume in 60 seconds, code map).
+2. Run `bash verify.sh`: if it is red, the package does not match the disk → stop and diagnose,
+   do not "fix" the tests.
+3. Recompute the fingerprint of §4: if it differs from the recorded one, something changed after
+   archiving.
+4. Choose **one** P1 item from `CHECKPOINT.md` §6, write the test that must fail first, then the
+   implementation, then update README and CHECKPOINT.
+5. Constraints to respect: typed GDScript, logic without nodes, signals upwards, determinism
+   on seed, no external assets, one logical step per diff.
+
+---
+
+## 12. Licence and attributions
+
+- **Game code**: no declared licence (all rights reserved to the author). To be decided before
+  publication.
+- **Engine**: Godot Engine 4.7.2, MIT licence (© Godot Engine contributors).
+- **Third-party assets**: none. Every pixel is generated by the project code.
+
+---
+
+## 13. How this package was produced
+
+Archiving of 20 October 2026: the project was copied from the development directory, stripped of
+the `.godot/` cache, the session logs and the `tools/` directory (empty), then subjected to
+independent verification in this same location (import, headless launch, headless suites).
+The results of that verification are in `CHECKPOINT.md` §10. The full backup of the
+pre-archiving state is indicated in `CHECKPOINT.md` §11.
